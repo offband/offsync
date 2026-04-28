@@ -70,7 +70,7 @@ class SecurityTests(unittest.TestCase):
         self.assertIn("--dry-run", args)
         self.assertIn("--checksum", args)
         self.assertIn("-v", args)
-        self.assertIn("deploy@example.test:/srv/data/", args)
+        self.assertIn("deploy@example.test:.", args)
         self.assertIn("BatchMode=yes", args[2])
 
 

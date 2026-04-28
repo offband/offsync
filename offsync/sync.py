@@ -161,7 +161,7 @@ def rsync_transfer_dry_run(
         "-v",
     ]
     args.extend(extra_options or [])
-    args.extend([f"{source}/", f"{target.login}:{target.remote_path}/"])
+    args.extend([f"{source}/", rsync_remote_spec(target)])
     result = run(args, capture_output=True, text=True, check=True)
     return result.stdout
 
@@ -172,7 +172,7 @@ def rsync_delete_dry_run(source: Path, target: Target, config: Config) -> str:
         "-v",
         "--delete",
         f"{source}/",
-        f"{target.login}:{target.remote_path}/",
+        rsync_remote_spec(target),
     ]
     result = run(args, capture_output=True, text=True, check=True)
     return result.stdout
@@ -181,7 +181,7 @@ def rsync_delete_dry_run(source: Path, target: Target, config: Config) -> str:
 def rsync_apply(source: Path, target: Target, config: Config) -> None:
     args = _rsync_common(config) + [
         f"{source}/",
-        f"{target.login}:{target.remote_path}/",
+        rsync_remote_spec(target),
     ]
     run(args, check=True)
 
@@ -200,6 +200,10 @@ def _rsync_common(config: Config) -> list[str]:
         "--safe-links",
         "--exclude=.git/",
     ]
+
+
+def rsync_remote_spec(target: Target) -> str:
+    return f"{target.login}:."
 
 
 def _is_rsync_summary_line(line: str) -> bool:

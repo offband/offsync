@@ -174,7 +174,7 @@ def verify_restricted_rsync(target: Target) -> None:
             "--checksum",
             "-v",
             f"{tmp}/",
-            f"{target.login}:{target.remote_path}/",
+            f"{target.login}:.",
         ]
         run(cmd, capture_output=True, text=True, check=True)
 

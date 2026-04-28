@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import patch
 
-from offsync.config import default_config
-from offsync.sync import parse_rsync_delete_output, parse_rsync_itemize, parse_rsync_name_output
+from offsync.config import Target, default_config
+from offsync.sync import parse_rsync_delete_output, parse_rsync_itemize, parse_rsync_name_output, rsync_remote_spec
 from offsync.sync import _rsync_common
 
 
@@ -54,6 +54,16 @@ class SyncTests(unittest.TestCase):
         output = "\n".join(["Transfer starting: 1 files", "deleting stale.txt", "*deleting old.txt"])
 
         self.assertEqual(parse_rsync_delete_output(output), {"old.txt", "stale.txt"})
+
+    def test_rsync_remote_spec_uses_restricted_directory_root(self):
+        target = Target(
+            login="deploy@example.test",
+            user="deploy",
+            host="example.test",
+            remote_path="/srv/data",
+        )
+
+        self.assertEqual(rsync_remote_spec(target), "deploy@example.test:.")
 
 
 if __name__ == "__main__":
