@@ -46,10 +46,10 @@ Target node:
 
 Install `offsync` on both the controller node and every target node.
 
-From PyPI:
+From GitHub:
 
 ```sh
-python3 -m pip install offsync
+python3 -m pip install git+https://github.com/offband/offsync.git
 ```
 
 Or install from a source checkout.
@@ -64,7 +64,7 @@ python3 -m pip install .
 Or install as an isolated CLI with `pipx`:
 
 ```sh
-pipx install .
+pipx install git+https://github.com/offband/offsync.git
 ```
 
 For development, use editable mode:
