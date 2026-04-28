@@ -46,11 +46,22 @@ Target node:
 
 Install `offsync` on both the controller node and every target node.
 
-From GitHub:
+Recommended for a CLI install:
 
 ```sh
-python3 -m pip install git+https://github.com/offband/offsync.git
+brew install pipx
+pipx install git+https://github.com/offband/offsync.git
 ```
+
+If you prefer a project-local virtual environment:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install git+https://github.com/offband/offsync.git
+```
+
+Use `python -m pip`, not `python3 -m pip`, after activating the virtual environment. On Homebrew Python, `python3 -m pip install ...` can still target the externally managed system interpreter.
 
 Or install from a source checkout.
 
@@ -61,16 +72,10 @@ cd offsync
 python3 -m pip install .
 ```
 
-Or install as an isolated CLI with `pipx`:
-
-```sh
-pipx install git+https://github.com/offband/offsync.git
-```
-
 For development, use editable mode:
 
 ```sh
-python3 -m pip install -e .
+python -m pip install -e .
 ```
 
 Verify the CLI is available:
