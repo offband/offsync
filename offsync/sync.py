@@ -35,19 +35,15 @@ def build_plan(config: Config) -> list[TargetPlan]:
     source = validate_source(config.source)
     plans: list[TargetPlan] = []
     for target in sorted(config.targets, key=lambda item: item.login):
-        output = rsync_dry_run(source, target, config, include_delete_scan=True)
-        changes = parse_rsync_itemize(output)
+        all_transfers = parse_rsync_name_output(rsync_transfer_dry_run(source, target, config))
+        added = parse_rsync_name_output(
+            rsync_transfer_dry_run(source, target, config, extra_options=["--ignore-existing"])
+        )
+        missing = parse_rsync_delete_output(rsync_delete_dry_run(source, target, config))
         plan = TargetPlan(target=target)
-        for change in changes:
-            if change.status == "added":
-                plan.added.append(change.path)
-            elif change.status == "modified":
-                plan.modified.append(change.path)
-            elif change.status == "missing":
-                plan.missing.append(change.path)
-        plan.added.sort()
-        plan.modified.sort()
-        plan.missing.sort()
+        plan.added = sorted(added)
+        plan.modified = sorted(all_transfers - added)
+        plan.missing = sorted(missing)
         plans.append(plan)
     return plans
 
@@ -74,9 +70,7 @@ def apply_plan(config: Config) -> list[TargetPlan]:
 def verify_target(source: Path, target: Target, config: Config) -> None:
     if config.verify != "hash":
         raise OffsyncError("only verify: hash is supported")
-    output = rsync_dry_run(source, target, config)
-    changes = parse_rsync_itemize(output)
-    pending = [change.path for change in changes if change.status in {"added", "modified"}]
+    pending = parse_rsync_name_output(rsync_transfer_dry_run(source, target, config))
     if pending:
         raise OffsyncError(f"verification failed for {target.host}: {', '.join(sorted(pending))}")
 
@@ -127,14 +121,59 @@ def parse_rsync_itemize(output: str) -> list[FileChange]:
     return sorted(changes, key=lambda item: (item.path, item.status))
 
 
-def rsync_dry_run(source: Path, target: Target, config: Config, include_delete_scan: bool = False) -> str:
+def parse_rsync_name_output(output: str) -> set[str]:
+    paths: set[str] = set()
+    for raw in output.splitlines():
+        path = raw.strip()
+        if not path or path.endswith("/"):
+            continue
+        if path.startswith("deleting ") or _is_rsync_summary_line(path):
+            continue
+        paths.add(path)
+    return paths
+
+
+def parse_rsync_delete_output(output: str) -> set[str]:
+    missing: set[str] = set()
+    for raw in output.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("*deleting"):
+            path = line.removeprefix("*deleting").strip()
+        elif line.startswith("deleting "):
+            path = line.removeprefix("deleting ").strip()
+        else:
+            continue
+        if path and not path.endswith("/"):
+            missing.add(path)
+    return missing
+
+
+def rsync_transfer_dry_run(
+    source: Path,
+    target: Target,
+    config: Config,
+    extra_options: list[str] | None = None,
+) -> str:
     args = _rsync_common(config) + [
         "--dry-run",
-        "--itemize-changes",
+        "-v",
     ]
-    if include_delete_scan:
-        args.append("--delete")
+    args.extend(extra_options or [])
     args.extend([f"{source}/", f"{target.login}:{target.remote_path}/"])
+    result = run(args, capture_output=True, text=True, check=True)
+    return result.stdout
+
+
+def rsync_delete_dry_run(source: Path, target: Target, config: Config) -> str:
+    args = _rsync_common(config) + [
+        "--dry-run",
+        "-v",
+        "--delete",
+        f"{source}/",
+        f"{target.login}:{target.remote_path}/",
+    ]
     result = run(args, capture_output=True, text=True, check=True)
     return result.stdout
 
@@ -159,10 +198,19 @@ def _rsync_common(config: Config) -> list[str]:
         "-a",
         "--checksum",
         "--safe-links",
-        "--human-readable",
-        "--out-format=%i %n",
         "--exclude=.git/",
     ]
+
+
+def _is_rsync_summary_line(line: str) -> bool:
+    return (
+        line.startswith("sending ")
+        or line.startswith("sent ")
+        or line.startswith("total size is ")
+        or line.startswith("Transfer starting:")
+        or line.startswith("created directory ")
+        or line.startswith("ignoring unsafe symlink ")
+    )
 
 
 def _safe_local_path(source: Path, path: Path, is_dir: bool) -> bool:

@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import os
+import shutil
 import sys
 import shlex
 import socket
@@ -170,7 +172,7 @@ def verify_restricted_rsync(target: Target) -> None:
         cmd = rsync_base(target.login) + [
             "--dry-run",
             "--checksum",
-            "--itemize-changes",
+            "-v",
             f"{tmp}/",
             f"{target.login}:{target.remote_path}/",
         ]
@@ -196,7 +198,29 @@ def rsync_base(login: str) -> list[str]:
             "StrictHostKeyChecking=yes",
         ]
     )
-    return ["rsync", "-e", ssh_cmd]
+    return [rsync_path(), "-e", ssh_cmd]
+
+
+def rsync_path() -> str:
+    override = os.environ.get("OFFSYNC_RSYNC")
+    if override:
+        if not Path(override).expanduser().exists():
+            raise OffsyncError(f"OFFSYNC_RSYNC does not exist: {override}")
+        return str(Path(override).expanduser())
+
+    candidates = [
+        shutil.which("rsync"),
+        "/opt/homebrew/bin/rsync",
+        "/usr/local/bin/rsync",
+    ]
+    for candidate in candidates:
+        if candidate and _is_gnu_rsync(candidate):
+            return candidate
+
+    raise OffsyncError(
+        "GNU rsync is required on the controller for rrsync compatibility. "
+        "Install it with `brew install rsync` or set OFFSYNC_RSYNC to a GNU rsync binary."
+    )
 
 
 def _is_safe_login_part(value: str) -> bool:
@@ -205,6 +229,15 @@ def _is_safe_login_part(value: str) -> bool:
 
 def _is_safe_host(value: str) -> bool:
     return all(char.isalnum() or char in ".-" for char in value)
+
+
+def _is_gnu_rsync(path: str) -> bool:
+    try:
+        result = subprocess.run([path, "--version"], capture_output=True, text=True, check=False)
+    except OSError:
+        return False
+    output = result.stdout + result.stderr
+    return result.returncode == 0 and "openrsync" not in output.lower() and "rsync  version" in output.lower()
 
 
 def run(args: list[str], **kwargs) -> subprocess.CompletedProcess:

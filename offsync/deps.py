@@ -6,7 +6,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
-from .ssh import OffsyncError
+from .ssh import OffsyncError, rsync_path
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,11 @@ def check_dependencies(role: str) -> DependencyReport:
     if commands is None:
         raise OffsyncError(f"unknown dependency role: {role}")
     missing = [command for command in commands if shutil.which(command) is None]
+    if role in {"controller", "both"} and "rsync" not in missing:
+        try:
+            rsync_path()
+        except OffsyncError:
+            missing.append("GNU rsync")
     return DependencyReport(role=role, missing=missing)
 
 

@@ -1,6 +1,9 @@
 import unittest
+from unittest.mock import patch
 
-from offsync.sync import parse_rsync_itemize
+from offsync.config import default_config
+from offsync.sync import parse_rsync_delete_output, parse_rsync_itemize, parse_rsync_name_output
+from offsync.sync import _rsync_common
 
 
 class SyncTests(unittest.TestCase):
@@ -21,6 +24,36 @@ class SyncTests(unittest.TestCase):
             [(item.status, item.path) for item in changes],
             [("modified", "changed.txt"), ("added", "new.txt"), ("missing", "stale.txt")],
         )
+
+    def test_rsync_common_uses_rrsync_safe_options(self):
+        with patch("offsync.ssh.rsync_path", return_value="rsync"):
+            args = _rsync_common(default_config())
+
+        self.assertIn("--safe-links", args)
+        self.assertIn("--exclude=.git/", args)
+        self.assertNotIn("--human-readable", args)
+        self.assertNotIn("--itemize-changes", args)
+
+    def test_parse_rsync_name_output(self):
+        output = "\n".join(
+            [
+                "Transfer starting: 3 files",
+                "created directory /tmp/target",
+                'ignoring unsafe symlink "venv/bin/python3.14" -> "/opt/homebrew/bin/python3.14"',
+                "new.txt",
+                "folder/",
+                "changed.txt",
+                "sent 82 bytes  received 20 bytes  92727 bytes/sec",
+                "total size is 1  speedup is 0.01",
+            ]
+        )
+
+        self.assertEqual(parse_rsync_name_output(output), {"changed.txt", "new.txt"})
+
+    def test_parse_rsync_delete_output(self):
+        output = "\n".join(["Transfer starting: 1 files", "deleting stale.txt", "*deleting old.txt"])
+
+        self.assertEqual(parse_rsync_delete_output(output), {"old.txt", "stale.txt"})
 
 
 if __name__ == "__main__":

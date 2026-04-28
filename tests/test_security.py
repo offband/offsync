@@ -62,13 +62,14 @@ class SecurityTests(unittest.TestCase):
             remote_path="/srv/data",
         )
 
-        with patch("offsync.ssh.run") as run:
+        with patch("offsync.ssh.rsync_path", return_value="rsync"), patch("offsync.ssh.run") as run:
             verify_restricted_rsync(target)
 
         args = run.call_args.args[0]
-        self.assertEqual(args[0], "rsync")
+        self.assertTrue(args[0].endswith("rsync"))
         self.assertIn("--dry-run", args)
         self.assertIn("--checksum", args)
+        self.assertIn("-v", args)
         self.assertIn("deploy@example.test:/srv/data/", args)
         self.assertIn("BatchMode=yes", args[2])
 
