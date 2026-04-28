@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "offsync"
+version = "0.1.0"
+description = "Minimal SSH-only deterministic file sync tool"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+authors = [{ name = "Offsync contributors" }]
+keywords = ["ssh", "rsync", "sync", "deployment"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: System :: Archiving :: Mirroring",
+    "Topic :: System :: Systems Administration",
+]
+
+[project.scripts]
+offsync = "offsync.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["offsync*"]
